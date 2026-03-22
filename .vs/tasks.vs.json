@@ -1,0 +1,15 @@
+{
+  "version": "0.2.1",
+  "tasks": [
+    {
+      "taskLabel": "task-stream_producer",
+      "appliesTo": "stream_producer.py",
+      "type": "launch"
+    },
+    {
+      "taskLabel": "task-train_model",
+      "appliesTo": "train_model.py",
+      "type": "launch"
+    }
+  ]
+}
