@@ -1,6 +1,8 @@
-# StreamSense — Serverless Real-Time Anomaly Detection Platform
 
-> End-to-end serverless AWS streaming analytics platform with ML-powered anomaly detection — ingests real-time data at scale via Kinesis, scores every event with a SageMaker Isolation Forest model in under 100ms, persists results to DynamoDB, archives to an S3 data lake, and exposes a live CloudWatch dashboard. Entire infrastructure provisioned with Terraform in one command.
+
+# StreamSense — Real-Time Anomaly Detection Platform
+
+A serverless, cloud-native platform for real-time anomaly detection across IoT, financial, and network data streams using Amazon Kinesis, SageMaker, and DynamoDB.
 
 ![Python](https://img.shields.io/badge/Python-3.11-blue?style=flat-square&logo=python)
 ![AWS](https://img.shields.io/badge/AWS-Kinesis%20%7C%20Lambda%20%7C%20SageMaker-orange?style=flat-square&logo=amazonaws)
@@ -9,267 +11,213 @@
 ![License](https://img.shields.io/badge/License-MIT-lightgrey?style=flat-square)
 ![Status](https://img.shields.io/badge/Status-Active-brightgreen?style=flat-square)
 
----
 
-## Overview
+## Features
 
-StreamSense is a **production-grade, event-driven anomaly detection system** built entirely on serverless AWS services. It demonstrates the complete lifecycle of a real-time ML platform:
+### Multi-Domain Anomaly Detection
+- **IoT**: Industrial sensor telemetry (voltage, current, temperature, vibration)
+- **Finance**: Transaction fraud detection (amounts, latency, merchant patterns)
+- **Network**: DDoS/intrusion detection (traffic flows, SYN floods, packet analysis)
 
-- High-throughput stream ingestion via **Amazon Kinesis Data Streams**
-- Real-time ML inference via a **SageMaker Isolation Forest** endpoint (< 100ms P99)
-- Serverless compute with **AWS Lambda** — zero idle cost
-- Time-series anomaly storage in **DynamoDB** with TTL-based expiry
-- Queryable data lake in **S3** with Glue/Athena for historical analysis
-- Instant alerts via **SNS** for critical anomaly scores
-- Full observability via **CloudWatch** custom metrics and dashboard
-- Complete **Terraform** IaC — `terraform apply` provisions everything
+### Architecture
+- **Stream Ingestion**: Amazon Kinesis Data Streams for high-throughput real-time data
+- **ML Models**: Isolation Forest ensemble trained per domain profile
+- **Inference**: AWS Lambda + SageMaker real-time endpoints
+- **Storage**: DynamoDB for results + CloudWatch metrics
+- **Alerting**: SNS for critical anomaly notifications
 
-Supports three independent stream profiles, each with a dedicated ML model:
+### Synthetic Data Generation
+- Configurable anomaly injection rates
+- Realistic fault patterns (spikes, dropouts, drifts)
+- Multiple concurrent producer profiles
 
-| Profile | Data source | Anomaly types |
-|---|---|---|
-| `iot` | Industrial sensor telemetry | Overvoltage, thermal runaway, oscillation |
-| `finance` | Payment transaction events | Fraud, velocity abuse, geo-mismatch |
-| `network` | Network flow telemetry | DDoS, port scan, data exfiltration |
+## Quick Start (Docker)
 
----
-
-## Architecture
-
-```
-Data Producers (IoT / Finance / Network)
-        │  Kinesis PutRecords (batched)
-        ▼
-┌──────────────────────────────────┐
-│  Amazon Kinesis Data Streams     │  2 shards, 24h retention
-│  (streamsense-ingest)            │
-└──────────┬───────────────────────┘
-           │                 │
-           ▼                 ▼
-  Lambda Processor     Kinesis Firehose
-  (per-record ML       (batch → S3 GZIP,
-   inference)           partitioned by date)
-           │
-    ┌──────┼────────────────────┐
-    ▼      ▼                    ▼
-DynamoDB  SNS Alerts       CloudWatch
-(results)  (email/SMS)    (custom metrics)
-    │
-    ▼
-API Gateway + Lambda (REST API)
-    │
-    ▼
-Athena + Glue Crawler (SQL on S3)
+### Build the Docker Image
+```bash
+docker build -t streamsense:latest .
 ```
 
-**SageMaker Isolation Forest** — one endpoint per profile, trained offline on labelled synthetic data, serving real-time scoring at < 100ms P99 latency on `ml.t3.medium` instances.
+### Train All Models
+```bash
+docker run --rm streamsense:latest python3 test_local.py
+```
 
----
+**Output:**
+- `ml/artifacts/model_iot.tar.gz` — IoT anomaly detector
+- `ml/artifacts/model_finance.tar.gz` — Finance fraud detector
+- `ml/artifacts/model_network.tar.gz` — Network intrusion detector
 
-## AWS Services Used
+### Run Data Producer (Local Mode)
+```bash
+# IoT profile @ 50 records/sec
+docker run --rm streamsense:latest python3 stream_producer.py --profile iot --rps 50 --local
 
-| Service | Role | Cost model |
-|---|---|---|
-| Kinesis Data Streams | Real-time event ingestion | Per shard-hour |
-| AWS Lambda | Stream processing + REST API | Per invocation |
-| Amazon SageMaker | ML model hosting + inference | Per instance-hour |
-| Amazon DynamoDB | Anomaly result storage + TTL | Pay-per-request |
-| Amazon S3 | Raw data lake archive | Per GB stored |
-| Kinesis Firehose | Batch delivery to S3 | Per GB delivered |
-| AWS Glue | Data catalog + crawler | Per DPU-hour |
-| Amazon Athena | SQL queries on S3 data | Per TB scanned |
-| Amazon SNS | Email / webhook alerts | Per notification |
-| CloudWatch | Metrics + dashboard | Per metric/API call |
-| Terraform | Infrastructure as Code | Free |
+# Finance profile @ 200 records/sec
+docker run --rm streamsense:latest python3 stream_producer.py --profile finance --rps 200 --local
 
----
+# Network profile @ 100 records/sec
+docker run --rm streamsense:latest python3 stream_producer.py --profile network --rps 100 --local
+```
+
+## Local Development Setup
+
+### Prerequisites
+- Python 3.11+
+- pip/venv or conda
+
+### Installation
+```bash
+# Create virtual environment
+python3 -m venv venv
+source venv/bin/activate  # On Windows: venv\Scripts\activate
+
+# Install dependencies
+pip install -r requirements.txt
+```
+
+### Train Models Locally
+```bash
+# Train IoT model
+python3 train_model.py --profile iot
+
+# Train Finance model
+python3 train_model.py --profile finance
+
+# Train Network model
+python3 train_model.py --profile network
+
+# Train and deploy to SageMaker (requires AWS credentials)
+python3 train_model.py --profile iot --deploy --region eu-central-1
+```
+
+### Run Data Producer Locally
+```bash
+# Local testing (prints anomalies to console)
+python3 stream_producer.py --profile iot --rps 50 --local
+
+# Stream to Kinesis (requires AWS credentials + Kinesis stream)
+python3 stream_producer.py --profile iot --rps 50 \
+  --stream streamsense-ingest --region eu-central-1
+```
+
+## AWS Deployment
+
+### Prerequisites
+- AWS Account with appropriate IAM permissions
+- Kinesis Data Streams, SageMaker, DynamoDB, Lambda, SNS, CloudWatch access
+- configured `~/.aws/credentials` or environment variables
+
+### 1. Create Infrastructure (Terraform)
+```bash
+terraform init
+terraform apply -var="region=eu-central-1" -var="environment=production"
+```
+
+### 2. Train and Deploy Models
+```bash
+python3 train_model.py --profile iot --deploy --region eu-central-1
+python3 train_model.py --profile finance --deploy --region eu-central-1
+python3 train_model.py --profile network --deploy --region eu-central-1
+```
+
+### 3. Start Stream Producer
+```bash
+python3 stream_producer.py --profile iot --rps 50 --stream streamsense-ingest
+```
+
+### 4. Deploy Stream Processor Lambda
+Package `stream_processor.py` and deploy to AWS Lambda with:
+- Trigger: Kinesis Data Streams batch
+- Environment variables:
+  - `SAGEMAKER_ENDPOINT_IOT=streamsense-iot-xxxxxx`
+  - `SAGEMAKER_ENDPOINT_FINANCE=streamsense-finance-xxxxxx`
+  - `SAGEMAKER_ENDPOINT_NETWORK=streamsense-network-xxxxxx`
+  - `DYNAMODB_TABLE=streamsense-anomalies`
+  - `SNS_TOPIC_ARN=arn:aws:sns:...`
+  - `ANOMALY_SCORE_THRESHOLD=0.3`
 
 ## Project Structure
 
 ```
-streamsense/
-│
-├── producer/
-│   └── stream_producer.py       # Multi-profile data generator → Kinesis
-│
-├── lambda/
-│   └── stream_processor.py      # Kinesis trigger → SageMaker → DynamoDB → SNS
-│
-├── ml/
-│   ├── train_model.py           # Isolation Forest training + SageMaker deployment
-│   └── artifacts/               # Auto-generated model files (gitignored)
-│
-├── infrastructure/
-│   └── main.tf                  # Terraform — all AWS resources in one file
-│
-├── requirements.txt
-└── README.md
+.
+├── train_model.py              # ML model training and SageMaker deployment
+├── stream_producer.py          # Synthetic data generation (local + Kinesis)
+├── stream_processor.py         # Lambda handler (inference + storage + alerts)
+├── test_local.py               # Local training test suite
+├── requirements.txt            # Python dependencies
+├── main.tf                     # Terraform infrastructure-as-code
+├── Dockerfile                  # Containerized environment
+└── ml/
+    └── artifacts/              # Trained models and metadata
 ```
----
 
-## ML Model — Isolation Forest
+## Model Performance
 
-StreamSense uses **Isolation Forest** for unsupervised anomaly detection — ideal for streaming because:
-
-- Trains on normal data only (no labelled anomaly examples required)
-- O(n log n) training, O(log n) inference — fast enough for real-time
-- Robust to high-dimensional feature spaces
-- Produces a continuous anomaly score (not just binary classification)
-
-### Performance (on synthetic held-out test set)
+Training on 5,250 samples (5,000 normal + 250 anomalies):
 
 | Profile | ROC-AUC | Avg Precision | Best F1 |
-|---|---|---|---|
-| IoT sensors | 0.94 | 0.87 | 0.83 |
-| Finance | 0.97 | 0.91 | 0.88 |
-| Network | 0.95 | 0.89 | 0.85 |
+|---------|---------|---------------|---------|
+| IoT     | 1.0000  | 1.0000        | 1.0000  |
+| Finance | 0.9981  | 0.9669        | 0.8990  |
+| Network | 1.0000  | 1.0000        | 1.0000  |
 
----
+## Environment Variables
 
-## Getting Started
+### Training
+- `CONTAMINATION` — anomaly rate (default: 0.05)
 
-### Prerequisites
+### Producer
+- `--profile {iot, finance, network}` — data domain
+- `--rps N` — records per second (default: 50)
+- `--stream NAME` — Kinesis stream name (default: streamsense-ingest)
+- `--region REGION` — AWS region (default: eu-central-1)
+- `--local` — enable local mode (prints to console, no AWS)
 
-- Python 3.8+
-- AWS CLI configured (`aws configure`)
-- Terraform 1.5+
-- AWS account with IAM, Lambda, Kinesis, SageMaker, DynamoDB, S3 permissions
+### Processor Lambda
+- `SAGEMAKER_ENDPOINT_IOT` — IoT inference endpoint
+- `SAGEMAKER_ENDPOINT_FINANCE` — Finance inference endpoint
+- `SAGEMAKER_ENDPOINT_NETWORK` — Network inference endpoint
+- `DYNAMODB_TABLE` — Results table (default: streamsense-anomalies)
+- `SNS_TOPIC_ARN` — Critical alert topic
+- `ANOMALY_SCORE_THRESHOLD` — alert threshold (default: 0.3)
 
-### 1. Clone and install
+## Testing
 
+### Unit Tests
 ```bash
-git clone https://github.com/Abwahab55/streamsense.git
-cd streamsense
-python -m venv venv && source venv/bin/activate
-pip install -r requirements.txt
+docker run --rm streamsense:latest python3 test_local.py
 ```
 
-### 2. Provision all AWS infrastructure
-
+### Integration Tests (AWS)
 ```bash
-cd infrastructure
-terraform init
-terraform apply -var="alert_email=your@email.com" -var="aws_region=eu-central-1"
+# Requires live Kinesis stream, DynamoDB table, SageMaker endpoints
+python3 -m pytest tests/ -v --aws
 ```
 
-This creates in one command: Kinesis stream, S3 data lake, DynamoDB table, SNS topic, Lambda function, Kinesis→Lambda trigger, Glue database + crawler, CloudWatch dashboard.
+## Troubleshooting
 
-### 3. Train and deploy ML models
+### Model not found
+Ensure `ml/artifacts/` contains `.tar.gz` files after training.
 
-```bash
-# Train all three profiles and deploy to SageMaker
-python ml/train_model.py --profile iot     --deploy --region eu-central-1
-python ml/train_model.py --profile finance --deploy --region eu-central-1
-python ml/train_model.py --profile network --deploy --region eu-central-1
-```
+### SageMaker deployment fails
+- Check IAM role has `sagemaker:` and `s3:` permissions
+- Verify endpoint name format: `streamsense-{profile}-YYYYMMDDHHmm`
 
-### 4. Start the data producer
+### Lambda timeout on Kinesis data
+- Increase timeout limit to 60+ seconds
+- Check SageMaker endpoint is warm and responding
 
-```bash
-# IoT profile at 50 records/second
-python producer/stream_producer.py --profile iot --rps 50
-
-# Finance profile at 200 records/second
-python producer/stream_producer.py --profile finance --rps 200
-
-# Local mode (no AWS, prints to console) — test without any costs
-python producer/stream_producer.py --profile iot --local
-```
-
-### 5. View live results
-
-```bash
-# Open CloudWatch dashboard (printed by terraform output)
-terraform output cloudwatch_dashboard
-
-# Query anomalies via Athena
-# SELECT source, COUNT(*) as anomalies, AVG(score) as avg_score
-# FROM streamsense_anomalies
-# WHERE anomaly = 1 AND timestamp > NOW() - INTERVAL '1' HOUR
-# GROUP BY source ORDER BY anomalies DESC
-```
-
----
-
-## Testing Without AWS
-
-Run the full pipeline locally with no cloud costs:
-
-```bash
-# Test producer output
-python producer/stream_producer.py --profile iot --local --rps 10
-
-# Train model and evaluate (no SageMaker deployment)
-python ml/train_model.py --profile iot
-
-# Test Lambda handler locally
-python -c "
-import json, base64
-from lambda.stream_processor import handler
-
-record = {
-    'stream_id': 'test-001',
-    'source': 'iot',
-    'timestamp': '2026-03-21T10:00:00Z',
-    'features': {
-        'voltage_v': 290.0,
-        'current_a': 18.5,
-        'temperature_c': 95.0,
-        'power_factor': 0.65,
-        'frequency_hz': 50.8,
-        'vibration_g': 3.2
-    }
-}
-encoded = base64.b64encode(json.dumps(record).encode()).decode()
-event = {'Records': [{'kinesis': {'data': encoded}}]}
-print(handler(event, None))
-"
-```
-
----
-
-## Cleanup
-
-```bash
-cd infrastructure
-terraform destroy -var="alert_email=your@email.com"
-
-# Also delete SageMaker endpoints manually (not managed by Terraform):
-aws sagemaker delete-endpoint --endpoint-name streamsense-iot
-aws sagemaker delete-endpoint --endpoint-name streamsense-finance
-aws sagemaker delete-endpoint --endpoint-name streamsense-network
-```
-
----
-
-## Roadmap
-
-- [ ] Apache Flink (Kinesis Data Analytics) for stateful windowed aggregations
-- [ ] LSTM/Autoencoder model for temporal sequence anomaly detection
-- [ ] Grafana dashboard via Amazon Managed Grafana
-- [ ] Multi-region active-active setup with Global DynamoDB tables
-- [ ] GitHub Actions CI/CD pipeline for model retraining + deployment
-- [ ] Confluent Kafka as alternative ingest layer
-
----
-
-## Author
-
-**Abdul Wahab**
-AE @ Lumissil Microsystems | SiC power systems → Cloud computing 
-
-- GitHub: [@Abwahab55](https://github.com/Abwahab55)
-- Email: wahab.engr55@yahoo.com
-
----
-
-## Acknowledgment
-
-Abdul Wahab thanks the AWS open-source community and the scikit-learn contributors whose Isolation Forest implementation forms the core ML layer of this platform.
-
----
+### Anomaly scores always 0
+- Verify features match schema in `train_model.py` `FEATURE_SCHEMAS`
+- Check inference script payload format in `deploy_to_sagemaker()`
 
 ## License
 
-This project is licensed under the MIT License.
-Copyright (c) 2026 Abdul Wahab
+See [LICENSE](LICENSE) file.
+
+## References
+
+- [AWS Kinesis Developer Guide](https://docs.aws.amazon.com/kinesis/)
+- [SageMaker Real-Time Inference](https://docs.aws.amazon.com/sagemaker/latest/dg/realtime-endpoints.html)
+- [Isolation Forest Paper](https://cs.nju.edu.cn/zhouzh/zhouzh.files/publication/icdm08.pdf)
