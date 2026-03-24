@@ -1,0 +1,21 @@
+{
+  "profile": "network",
+  "features": [
+    "bytes_per_sec",
+    "packets_per_sec",
+    "connections",
+    "error_rate",
+    "syn_flood_ratio",
+    "unique_src_ips",
+    "avg_packet_size",
+    "duration_sec"
+  ],
+  "trained_at": "2026-03-24T20:19:06.817624",
+  "n_train": 5000,
+  "contamination": 0.05,
+  "metrics": {
+    "roc_auc": 1.0,
+    "avg_precision": 1.0,
+    "best_f1": 1.0
+  }
+}
