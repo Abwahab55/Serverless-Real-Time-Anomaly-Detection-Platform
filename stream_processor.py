@@ -180,7 +180,6 @@ import base64
 import json
 import os
 import time
-import uuid
 import boto3
 from datetime import datetime, timezone
 from decimal import Decimal
@@ -213,7 +212,7 @@ def to_decimal(obj):
     return obj
 
 
-def call_sagemaker(endpoint, features: dict) -> dict:
+def call_sagemaker(endpoint: str, features: dict) -> dict:
     payload = json.dumps({"features": features})
     try:
         resp = sagemaker_rt.invoke_endpoint(

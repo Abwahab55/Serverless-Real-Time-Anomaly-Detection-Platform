@@ -1,0 +1,50 @@
+version: '3.8'
+
+services:
+  streamsense-train:
+    build: .
+    container_name: streamsense-train
+    command: python3 test_local.py
+    volumes:
+      - ./ml/artifacts:/app/ml/artifacts
+    environment:
+      - PYTHONUNBUFFERED=1
+    networks:
+      - streamsense
+
+  streamsense-producer-iot:
+    build: .
+    container_name: streamsense-producer-iot
+    command: python3 stream_producer.py --profile iot --rps 20 --local
+    environment:
+      - PYTHONUNBUFFERED=1
+    networks:
+      - streamsense
+    depends_on:
+      - streamsense-train
+
+  streamsense-producer-finance:
+    build: .
+    container_name: streamsense-producer-finance
+    command: python3 stream_producer.py --profile finance --rps 50 --local
+    environment:
+      - PYTHONUNBUFFERED=1
+    networks:
+      - streamsense
+    depends_on:
+      - streamsense-train
+
+  streamsense-producer-network:
+    build: .
+    container_name: streamsense-producer-network
+    command: python3 stream_producer.py --profile network --rps 30 --local
+    environment:
+      - PYTHONUNBUFFERED=1
+    networks:
+      - streamsense
+    depends_on:
+      - streamsense-train
+
+networks:
+  streamsense:
+    driver: bridge
