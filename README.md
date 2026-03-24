@@ -105,7 +105,6 @@ streamsense/
 ├── requirements.txt
 └── README.md
 ```
-
 ---
 
 ## ML Model — Isolation Forest
